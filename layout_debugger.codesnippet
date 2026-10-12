@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>IDECodeSnippetCompletionPrefix</key>
+	<string>layout_debugger</string>
+	<key>IDECodeSnippetCompletionScopes</key>
+	<array>
+		<string>All</string>
+	</array>
+	<key>IDECodeSnippetContents</key>
+	<string>import SwiftUI
+
+private let layoutDebuggingEnabled = true
+
+struct LayoutDebuggerModifier: ViewModifier {
+    let color: Color
+
+    func body(content: Content) -&gt; some View {
+        if layoutDebuggingEnabled {
+            content
+                .background(color.opacity(0.15))
+                .border(color, width: 1.0)
+        } else {
+            content
+        }
+    }
+}
+extension View {
+    func debugLayout(color: Color) -&gt; some View {
+        modifier(LayoutDebuggerModifier(color: color))
+    }
+}
+</string>
+	<key>IDECodeSnippetIdentifier</key>
+	<string>92E49C9C-74DE-4512-988A-F161C50F9E20</string>
+	<key>IDECodeSnippetLanguage</key>
+	<string>Xcode.SourceCodeLanguage.Swift</string>
+	<key>IDECodeSnippetSummary</key>
+	<string></string>
+	<key>IDECodeSnippetTitle</key>
+	<string>Layout Debugger</string>
+	<key>IDECodeSnippetUserSnippet</key>
+	<true/>
+	<key>IDECodeSnippetVersion</key>
+	<integer>2</integer>
+</dict>
+</plist>

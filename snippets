@@ -1,0 +1,400 @@
+#!/usr/bin/env python3
+"""Manage Xcode code snippets kept in this folder.
+
+Xcode reads user snippets from ~/Library/Developer/Xcode/UserData/CodeSnippets.
+That path is symlinked here, and each snippet is named <completion_prefix>.codesnippet.
+
+Commands:
+  list [QUERY] [--scope S]   List snippets, optionally filtered
+  show PREFIX                Print a snippet's metadata and body
+  new PREFIX --title T ...   Create a snippet (body from --body-file, stdin, or $EDITOR)
+  edit PREFIX [...]          Change fields; with no field options, edit the body in $EDITOR
+  rename OLD NEW             Change a snippet's completion prefix and filename
+  rm PREFIX [-y]             Delete a snippet
+  tidy [--dry-run]           Rename UUID-named files (made in Xcode) to PREFIX.codesnippet
+  check [--strict]           Validate every snippet
+  link [--force]             Point Xcode's snippet folder at this folder
+  status                     Show where Xcode's snippet folder points
+
+Xcode loads snippets at launch, so restart Xcode to see changes made here.
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import plistlib
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import uuid
+from datetime import date
+from pathlib import Path
+
+XCODE_DIR = Path.home() / "Library/Developer/Xcode/UserData/CodeSnippets"
+SNIPPETS_DIR = Path(os.environ.get("SNIPPETS_DIR", Path(__file__).resolve().parent))
+SUFFIX = ".codesnippet"
+LANGUAGE = "Xcode.SourceCodeLanguage.Swift"
+SCOPES = ["All", "TopLevel", "ClassImplementation", "CodeBlock", "CodeExpression", "StringOrComment"]
+REQUIRED_KEYS = [
+    "IDECodeSnippetCompletionPrefix",
+    "IDECodeSnippetCompletionScopes",
+    "IDECodeSnippetContents",
+    "IDECodeSnippetIdentifier",
+    "IDECodeSnippetLanguage",
+    "IDECodeSnippetTitle",
+]
+PREFIX_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+class Snippet:
+    def __init__(self, path: Path, data: dict):
+        self.path = path
+        self.data = data
+
+    @property
+    def prefix(self) -> str:
+        return self.data.get("IDECodeSnippetCompletionPrefix", "")
+
+    @property
+    def title(self) -> str:
+        return self.data.get("IDECodeSnippetTitle", "")
+
+    @property
+    def summary(self) -> str:
+        return self.data.get("IDECodeSnippetSummary", "")
+
+    @property
+    def scopes(self) -> list[str]:
+        return self.data.get("IDECodeSnippetCompletionScopes", [])
+
+    @property
+    def body(self) -> str:
+        return self.data.get("IDECodeSnippetContents", "")
+
+    def save(self, path: Path | None = None) -> None:
+        target = path or self.path
+        with open(target, "wb") as f:
+            plistlib.dump(self.data, f, fmt=plistlib.FMT_XML, sort_keys=True)
+        self.path = target
+
+
+def fail(message: str) -> None:
+    print(f"error: {message}", file=sys.stderr)
+    sys.exit(1)
+
+
+def xcode_running() -> bool:
+    return subprocess.run(["pgrep", "-x", "Xcode"], capture_output=True).returncode == 0
+
+
+def restart_hint() -> None:
+    if xcode_running():
+        print("note: Xcode is running; restart it to pick up the change.")
+
+
+def load_all() -> list[Snippet]:
+    snippets = []
+    for path in sorted(SNIPPETS_DIR.glob(f"*{SUFFIX}")):
+        try:
+            with open(path, "rb") as f:
+                snippets.append(Snippet(path, plistlib.load(f)))
+        except Exception as error:  # report but keep going so one bad file doesn't hide the rest
+            print(f"warning: cannot read {path.name}: {error}", file=sys.stderr)
+    return snippets
+
+
+def find(prefix: str) -> Snippet:
+    matches = [s for s in load_all() if s.prefix == prefix]
+    if not matches:
+        fail(f"no snippet with prefix '{prefix}'")
+    if len(matches) > 1:
+        fail(f"prefix '{prefix}' is used by {', '.join(s.path.name for s in matches)}; run 'check'")
+    return matches[0]
+
+
+def validate_prefix(prefix: str) -> None:
+    if not PREFIX_PATTERN.match(prefix):
+        fail(f"invalid prefix '{prefix}' (use letters, digits and underscores)")
+
+
+def validate_scopes(scopes: list[str]) -> list[str]:
+    for scope in scopes:
+        if scope not in SCOPES:
+            fail(f"unknown scope '{scope}' (choose from {', '.join(SCOPES)})")
+    return scopes
+
+
+def edit_text(initial: str) -> str:
+    editor = os.environ.get("VISUAL") or os.environ.get("EDITOR") or "vi"
+    with tempfile.NamedTemporaryFile("w+", suffix=".swift", delete=False) as f:
+        f.write(initial)
+        temp = Path(f.name)
+    try:
+        subprocess.run(f'{editor} "{temp}"', shell=True, check=True)
+        return temp.read_text().rstrip("\n")
+    finally:
+        temp.unlink(missing_ok=True)
+
+
+def read_body(body_file: str | None, initial: str = "") -> str:
+    if body_file == "-" or (body_file is None and not sys.stdin.isatty()):
+        return sys.stdin.read().rstrip("\n")
+    if body_file:
+        return Path(body_file).read_text().rstrip("\n")
+    return edit_text(initial)
+
+
+def cmd_list(args) -> None:
+    snippets = load_all()
+    if args.query:
+        q = args.query.lower()
+        snippets = [s for s in snippets if q in s.prefix.lower() or q in s.title.lower() or q in s.body.lower()]
+    if args.scope:
+        snippets = [s for s in snippets if args.scope in s.scopes]
+    if not snippets:
+        print("no snippets")
+        return
+    width = max(len(s.prefix) for s in snippets)
+    for s in sorted(snippets, key=lambda s: s.prefix):
+        print(f"{s.prefix:<{width}}  {s.title}  [{', '.join(s.scopes)}]")
+
+
+def cmd_show(args) -> None:
+    s = find(args.prefix)
+    print(f"prefix:  {s.prefix}")
+    print(f"title:   {s.title}")
+    print(f"summary: {s.summary}")
+    print(f"scopes:  {', '.join(s.scopes)}")
+    print(f"file:    {s.path.name}")
+    print("---")
+    print(s.body)
+
+
+def cmd_new(args) -> None:
+    validate_prefix(args.prefix)
+    if any(s.prefix == args.prefix for s in load_all()):
+        fail(f"prefix '{args.prefix}' already exists")
+    path = SNIPPETS_DIR / f"{args.prefix}{SUFFIX}"
+    if path.exists():
+        fail(f"{path.name} already exists")
+    body = read_body(args.body_file)
+    if not body.strip():
+        fail("empty body; nothing created")
+    snippet = Snippet(path, {
+        "IDECodeSnippetCompletionPrefix": args.prefix,
+        "IDECodeSnippetCompletionScopes": validate_scopes(args.scope or ["All"]),
+        "IDECodeSnippetContents": body,
+        "IDECodeSnippetIdentifier": str(uuid.uuid4()).upper(),
+        "IDECodeSnippetLanguage": LANGUAGE,
+        "IDECodeSnippetSummary": args.summary or "",
+        "IDECodeSnippetTitle": args.title,
+        "IDECodeSnippetUserSnippet": True,
+        "IDECodeSnippetVersion": 2,
+    })
+    snippet.save()
+    print(f"created {path.name}")
+    restart_hint()
+
+
+def cmd_edit(args) -> None:
+    s = find(args.prefix)
+    changed_fields = args.title is not None or args.summary is not None or args.scope or args.body_file
+    if args.title is not None:
+        s.data["IDECodeSnippetTitle"] = args.title
+    if args.summary is not None:
+        s.data["IDECodeSnippetSummary"] = args.summary
+    if args.scope:
+        s.data["IDECodeSnippetCompletionScopes"] = validate_scopes(args.scope)
+    if args.body_file or not changed_fields:
+        body = read_body(args.body_file, s.body)
+        if not body.strip():
+            fail("empty body; snippet unchanged")
+        s.data["IDECodeSnippetContents"] = body
+    s.save()
+    print(f"updated {s.path.name}")
+    restart_hint()
+
+
+def cmd_rename(args) -> None:
+    validate_prefix(args.new)
+    s = find(args.old)
+    if any(other.prefix == args.new for other in load_all()):
+        fail(f"prefix '{args.new}' already exists")
+    target = SNIPPETS_DIR / f"{args.new}{SUFFIX}"
+    if target.exists():
+        fail(f"{target.name} already exists")
+    old_path = s.path
+    s.data["IDECodeSnippetCompletionPrefix"] = args.new
+    s.save(target)
+    old_path.unlink()
+    print(f"renamed {old_path.name} -> {target.name}")
+    restart_hint()
+
+
+def cmd_rm(args) -> None:
+    s = find(args.prefix)
+    if not args.yes:
+        answer = input(f"delete {s.path.name} ({s.title})? [y/N] ")
+        if answer.strip().lower() != "y":
+            print("cancelled")
+            return
+    s.path.unlink()
+    print(f"deleted {s.path.name}")
+    restart_hint()
+
+
+def cmd_tidy(args) -> None:
+    renamed = 0
+    for s in load_all():
+        expected = f"{s.prefix}{SUFFIX}"
+        if not s.prefix or s.path.name == expected:
+            continue
+        target = SNIPPETS_DIR / expected
+        if target.exists():
+            print(f"skip {s.path.name}: {expected} already exists")
+            continue
+        print(f"{'would rename' if args.dry_run else 'renamed'} {s.path.name} -> {expected}")
+        if not args.dry_run:
+            s.path.rename(target)
+        renamed += 1
+    if not renamed:
+        print("nothing to rename")
+
+
+def cmd_check(args) -> None:
+    problems = []
+    prefixes: dict[str, list[str]] = {}
+    identifiers: dict[str, list[str]] = {}
+    for s in load_all():
+        name = s.path.name
+        for key in REQUIRED_KEYS:
+            if key not in s.data:
+                problems.append(f"{name}: missing {key}")
+        if s.prefix and not PREFIX_PATTERN.match(s.prefix):
+            problems.append(f"{name}: prefix '{s.prefix}' has unusual characters")
+        if s.prefix and name != f"{s.prefix}{SUFFIX}":
+            problems.append(f"{name}: filename doesn't match prefix '{s.prefix}' (run 'tidy')")
+        for scope in s.scopes:
+            if scope not in SCOPES:
+                problems.append(f"{name}: unknown scope '{scope}'")
+        if args.strict and not s.summary:
+            problems.append(f"{name}: no summary")
+        if s.body.count("<#") != s.body.count("#>"):
+            problems.append(f"{name}: unbalanced <# #> placeholders")
+        if s.body.count("{") != s.body.count("}"):
+            problems.append(f"{name}: unbalanced braces")
+        prefixes.setdefault(s.prefix, []).append(name)
+        identifiers.setdefault(s.data.get("IDECodeSnippetIdentifier", ""), []).append(name)
+    for prefix, names in prefixes.items():
+        if prefix and len(names) > 1:
+            problems.append(f"duplicate prefix '{prefix}': {', '.join(names)}")
+    for identifier, names in identifiers.items():
+        if identifier and len(names) > 1:
+            problems.append(f"duplicate identifier {identifier}: {', '.join(names)}")
+    for problem in problems:
+        print(problem)
+    print(f"{len(problems)} problem(s)" if problems else "all snippets OK")
+    sys.exit(1 if problems else 0)
+
+
+def cmd_status(args) -> None:
+    print(f"snippets folder: {SNIPPETS_DIR}")
+    if XCODE_DIR.is_symlink():
+        target = Path(os.readlink(XCODE_DIR))
+        ok = target.resolve() == SNIPPETS_DIR.resolve()
+        print(f"Xcode folder:    {XCODE_DIR} -> {target}{'' if ok else '  (NOT this folder)'}")
+    elif XCODE_DIR.exists():
+        print(f"Xcode folder:    {XCODE_DIR} is a real folder, not linked (run 'link')")
+    else:
+        print(f"Xcode folder:    {XCODE_DIR} doesn't exist (run 'link')")
+    print(f"snippets:        {len(load_all())}")
+    print(f"Xcode running:   {'yes' if xcode_running() else 'no'}")
+
+
+def cmd_link(args) -> None:
+    if XCODE_DIR.is_symlink() and XCODE_DIR.resolve() == SNIPPETS_DIR.resolve():
+        print("already linked")
+        return
+    if xcode_running() and not args.force:
+        fail("quit Xcode first (or pass --force)")
+    if XCODE_DIR.is_symlink():
+        XCODE_DIR.unlink()
+    elif XCODE_DIR.exists():
+        backup = XCODE_DIR.with_name(f"CodeSnippets.backup-{date.today().isoformat()}")
+        n = 1
+        while backup.exists():
+            n += 1
+            backup = XCODE_DIR.with_name(f"CodeSnippets.backup-{date.today().isoformat()}-{n}")
+        shutil.move(str(XCODE_DIR), str(backup))
+        print(f"moved existing folder to {backup}")
+        print("copy any snippets you want to keep from it into this folder, then run 'tidy'")
+    XCODE_DIR.parent.mkdir(parents=True, exist_ok=True)
+    XCODE_DIR.symlink_to(SNIPPETS_DIR)
+    print(f"linked {XCODE_DIR} -> {SNIPPETS_DIR}")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Manage Xcode code snippets.",
+                                     formatter_class=argparse.RawDescriptionHelpFormatter,
+                                     epilog=f"Scopes: {', '.join(SCOPES)}")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    p = sub.add_parser("list", help="list snippets")
+    p.add_argument("query", nargs="?", help="filter by prefix, title or body text")
+    p.add_argument("--scope", choices=SCOPES)
+    p.set_defaults(func=cmd_list)
+
+    p = sub.add_parser("show", help="print a snippet")
+    p.add_argument("prefix")
+    p.set_defaults(func=cmd_show)
+
+    p = sub.add_parser("new", help="create a snippet")
+    p.add_argument("prefix")
+    p.add_argument("--title", required=True)
+    p.add_argument("--summary")
+    p.add_argument("--scope", action="append", help="repeatable; default All")
+    p.add_argument("--body-file", help="file with the body, or - for stdin; default opens $EDITOR")
+    p.set_defaults(func=cmd_new)
+
+    p = sub.add_parser("edit", help="change a snippet (no options: edit body in $EDITOR)")
+    p.add_argument("prefix")
+    p.add_argument("--title")
+    p.add_argument("--summary")
+    p.add_argument("--scope", action="append", help="repeatable; replaces existing scopes")
+    p.add_argument("--body-file", help="file with the new body, or - for stdin")
+    p.set_defaults(func=cmd_edit)
+
+    p = sub.add_parser("rename", help="change a snippet's prefix")
+    p.add_argument("old")
+    p.add_argument("new")
+    p.set_defaults(func=cmd_rename)
+
+    p = sub.add_parser("rm", help="delete a snippet")
+    p.add_argument("prefix")
+    p.add_argument("-y", "--yes", action="store_true")
+    p.set_defaults(func=cmd_rm)
+
+    p = sub.add_parser("tidy", help="rename files to PREFIX.codesnippet")
+    p.add_argument("--dry-run", action="store_true")
+    p.set_defaults(func=cmd_tidy)
+
+    p = sub.add_parser("check", help="validate snippets")
+    p.add_argument("--strict", action="store_true", help="also flag missing summaries")
+    p.set_defaults(func=cmd_check)
+
+    p = sub.add_parser("link", help="symlink Xcode's snippet folder here")
+    p.add_argument("--force", action="store_true", help="link even if Xcode is running")
+    p.set_defaults(func=cmd_link)
+
+    p = sub.add_parser("status", help="show link status")
+    p.set_defaults(func=cmd_status)
+
+    args = parser.parse_args()
+    args.func(args)
+
+
+if __name__ == "__main__":
+    main()

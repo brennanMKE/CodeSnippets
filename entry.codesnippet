@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>IDECodeSnippetCompletionPrefix</key>
+	<string>entry</string>
+	<key>IDECodeSnippetCompletionScopes</key>
+	<array>
+		<string>TopLevel</string>
+	</array>
+	<key>IDECodeSnippetContents</key>
+	<string>extension EnvironmentValues {
+    @Entry var &lt;#name#&gt;: &lt;#Type#&gt; = &lt;#defaultValue#&gt;
+}</string>
+	<key>IDECodeSnippetIdentifier</key>
+	<string>BA6BB1B5-3FEC-4FFF-B08C-FA8390ACABEF</string>
+	<key>IDECodeSnippetLanguage</key>
+	<string>Xcode.SourceCodeLanguage.Swift</string>
+	<key>IDECodeSnippetSummary</key>
+	<string>Define a custom environment value with the @Entry macro.</string>
+	<key>IDECodeSnippetTitle</key>
+	<string>Environment Entry</string>
+	<key>IDECodeSnippetUserSnippet</key>
+	<true/>
+	<key>IDECodeSnippetVersion</key>
+	<integer>2</integer>
+</dict>
+</plist>

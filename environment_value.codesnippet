@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>IDECodeSnippetCompletionPrefix</key>
+	<string>environment_value</string>
+	<key>IDECodeSnippetCompletionScopes</key>
+	<array>
+		<string>All</string>
+	</array>
+	<key>IDECodeSnippetContents</key>
+	<string>private struct &lt;#Name#&gt;Key: EnvironmentKey {
+    // This is the default client used if none is provided via .environment()
+    static let defaultValue: &lt;#Name#&gt; = &lt;#Name#&gt;()
+}
+
+extension EnvironmentValues {
+    var &lt;#Name#&gt;: &lt;#Name#&gt; {
+        get { self[&lt;#Name#&gt;Key.self] }
+        set { self[&lt;#Name#&gt;Key.self] = newValue }
+    }
+}</string>
+	<key>IDECodeSnippetIdentifier</key>
+	<string>087CDEF9-5404-41C2-B349-2EA7C528322B</string>
+	<key>IDECodeSnippetLanguage</key>
+	<string>Xcode.SourceCodeLanguage.Swift</string>
+	<key>IDECodeSnippetSummary</key>
+	<string></string>
+	<key>IDECodeSnippetTitle</key>
+	<string>Define Environment Value</string>
+	<key>IDECodeSnippetUserSnippet</key>
+	<true/>
+	<key>IDECodeSnippetVersion</key>
+	<integer>2</integer>
+</dict>
+</plist>

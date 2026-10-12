@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>IDECodeSnippetCompletionPrefix</key>
+	<string>mock_urlprotocol</string>
+	<key>IDECodeSnippetCompletionScopes</key>
+	<array>
+		<string>All</string>
+	</array>
+	<key>IDECodeSnippetContents</key>
+	<string>nonisolated class MockURLProtocol: URLProtocol {
+    override class func canInit(with request: URLRequest) -&gt; Bool {
+        guard let url = request.url else {
+            return false
+        }
+
+        let result = url.path().hasPrefix(&lt;#path#&gt;)
+
+        return result
+    }
+
+    override class func canonicalRequest(for request: URLRequest) -&gt; URLRequest {
+        return request
+    }
+
+    override func startLoading() {
+        Task {
+            await handleRequest()
+        }
+    }
+
+    override func stopLoading() {
+        // No-op for mock
+    }
+
+    private func handleRequest() async {
+        guard let url = request.url else {
+            client?.urlProtocol(self, didFailWithError: URLError(.badURL))
+            return
+        }
+
+        if url.path().hasPrefix(&lt;#path#&gt;) {
+            handleRequest(url: url)
+        } else {
+            client?.urlProtocol(self, didFailWithError: VideoFeedClientError.unsupportedRequest)
+        }
+    }
+
+    private func handleRequest(url: URL) {
+        guard let url = Bundle.main.url(forResource: "video-feed", withExtension: "json"),
+              let data = try? Data(contentsOf: url) else {
+            client?.urlProtocol(self, didFailWithError: VideoFeedClientError.missingData)
+            return
+        }
+
+        let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "application/json"])!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+
+        client?.urlProtocol(self, didLoad: data)
+        client?.urlProtocolDidFinishLoading(self)
+        logger.log("\(#function) at \(#line)")
+    }
+
+}
+</string>
+	<key>IDECodeSnippetIdentifier</key>
+	<string>1DF4C987-9492-4833-B30E-962F618D0F7C</string>
+	<key>IDECodeSnippetLanguage</key>
+	<string>Xcode.SourceCodeLanguage.Swift</string>
+	<key>IDECodeSnippetSummary</key>
+	<string></string>
+	<key>IDECodeSnippetTitle</key>
+	<string>Mock URLProtocol</string>
+	<key>IDECodeSnippetUserSnippet</key>
+	<true/>
+	<key>IDECodeSnippetVersion</key>
+	<integer>2</integer>
+</dict>
+</plist>

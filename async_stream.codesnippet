@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>IDECodeSnippetCompletionPrefix</key>
+	<string>async_stream</string>
+	<key>IDECodeSnippetCompletionScopes</key>
+	<array>
+		<string>CodeBlock</string>
+	</array>
+	<key>IDECodeSnippetContents</key>
+	<string>let (stream, continuation) = AsyncStream.makeStream(of: &lt;#Element#&gt;.self)
+continuation.onTermination = { _ in
+    &lt;#stop producing#&gt;
+}
+&lt;#producer#&gt; { value in
+    continuation.yield(value)
+}</string>
+	<key>IDECodeSnippetIdentifier</key>
+	<string>D5242E22-E026-4FD8-B1CF-7EC5228EA3AC</string>
+	<key>IDECodeSnippetLanguage</key>
+	<string>Xcode.SourceCodeLanguage.Swift</string>
+	<key>IDECodeSnippetSummary</key>
+	<string>Bridge a callback or delegate source to an AsyncStream.</string>
+	<key>IDECodeSnippetTitle</key>
+	<string>AsyncStream</string>
+	<key>IDECodeSnippetUserSnippet</key>
+	<true/>
+	<key>IDECodeSnippetVersion</key>
+	<integer>2</integer>
+</dict>
+</plist>

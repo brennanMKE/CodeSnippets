@@ -1,0 +1,17 @@
+# macOS
+.DS_Store
+._*
+
+# Python
+__pycache__/
+*.pyc
+
+# Editors
+*.swp
+*~
+.vscode/
+.idea/
+
+# Merge leftovers
+*.orig
+*.rej

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>IDECodeSnippetCompletionPrefix</key>
+	<string>continuation_checked</string>
+	<key>IDECodeSnippetCompletionScopes</key>
+	<array>
+		<string>CodeExpression</string>
+		<string>CodeBlock</string>
+	</array>
+	<key>IDECodeSnippetContents</key>
+	<string>await withCheckedContinuation { continuation in
+    &lt;#function#&gt; { &lt;#value#&gt; in
+        continuation.resume(returning: &lt;#value#&gt;)
+    }
+}</string>
+	<key>IDECodeSnippetIdentifier</key>
+	<string>5C461405-94FB-434B-AAD0-72F98E5DF7E6</string>
+	<key>IDECodeSnippetLanguage</key>
+	<string>Xcode.SourceCodeLanguage.Swift</string>
+	<key>IDECodeSnippetSummary</key>
+	<string>Bridge a callback-based API to async/await with withCheckedContinuation.</string>
+	<key>IDECodeSnippetTitle</key>
+	<string>Checked Continuation</string>
+	<key>IDECodeSnippetUserSnippet</key>
+	<true/>
+	<key>IDECodeSnippetVersion</key>
+	<integer>2</integer>
+</dict>
+</plist>

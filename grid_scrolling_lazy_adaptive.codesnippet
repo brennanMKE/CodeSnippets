@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>IDECodeSnippetCompletionPrefix</key>
+	<string>grid_scrolling_lazy_adaptive</string>
+	<key>IDECodeSnippetCompletionScopes</key>
+	<array>
+		<string>All</string>
+	</array>
+	<key>IDECodeSnippetContents</key>
+	<string>ScrollView() {
+    LazyVGrid(columns: columns, spacing: 20) {
+        ForEach(&lt;#view models#&gt;) { &lt;#view model#&gt; in
+            EmptyView() // replace with actual view
+                .frame(maxHeight: .infinity, alignment: .top)
+                .opacity(&lt;#isSelectedItem#&gt; ? 0 : 1) // Magic Move support
+        }
+    }
+    .padding(.top, 6)
+}</string>
+	<key>IDECodeSnippetIdentifier</key>
+	<string>BF90EED7-19FD-4C3E-A943-AB77852C6427</string>
+	<key>IDECodeSnippetLanguage</key>
+	<string>Xcode.SourceCodeLanguage.Swift</string>
+	<key>IDECodeSnippetSummary</key>
+	<string></string>
+	<key>IDECodeSnippetTitle</key>
+	<string>Scrolling Lazy Grid</string>
+	<key>IDECodeSnippetUserSnippet</key>
+	<true/>
+	<key>IDECodeSnippetVersion</key>
+	<integer>2</integer>
+</dict>
+</plist>
